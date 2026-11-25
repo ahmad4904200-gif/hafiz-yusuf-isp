@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ur"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Real Power Of Internet - VIP</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial;background:#0f172a;color:#fff}
+header{padding:14px;background:#1e293b;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0}
+header b{font-size:19px;color:#22c55e}
+.cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:12px}
+.card{background:#1e293b;border-radius:14px;padding:14px;text-align:center}
+.card span{font-size:28px;font-weight:900;color:#22c55e}.card small{color:#cbd5e1}
+.box{background:#1e293b;margin:0 12px 12px;padding:12px;border-radius:14px}
+input,select{width:100%;padding:11px;margin:5px 0;border-radius:10px;border:0;background:#0f172a;color:#fff;outline:none}
+button{padding:11px 14px;border:0;border-radius:10px;background:#22c55e;font-weight:800;cursor:pointer;width:100%;margin-top:6px}
+.btn2{background:#25D366}.btn3{background:#f59e0b;color:#000}.btn4{background:#3b82f6}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px;border-bottom:1px solid #334155;text-align:left}
+a{color:#25D366;text-decoration:none;font-weight:700}.flex{display:flex;gap:8px}.flex>*{flex:1}
+.tabs{display:flex;gap:8px;padding:0 12px 12px}.tabs button{background:#334155;color:#fff}
+.tabs button.active{background:#22c55e;color:#000}
+.hide{display:none}.small{font-size:12px;color:#94a3b8}
+</style></head>
+<body>
+<header><b>🌐 Real Power Of Internet</b><span>VIP Software</span></header>
+
+<div class="cards">
+<div class="card"><span id="totalUsers">0</span><br><small>Total Users</small></div>
+<div class="card"><span id="todayExpire" style="color:#f59e0b">0</span><br><small>Today Expire</small></div>
+<div class="card"><span id="totalCollection">0</span><br><small>Total Collection Rs</small></div>
+</div>
+
+<div class="tabs">
+<button class="active" onclick="showTab('customers',this)">Customers</button>
+<button onclick="showTab('workers',this)">Workers</button>
+<button onclick="showTab('add',this)">+ Add Customer</button>
+</div>
+
+<div id="customersTab">
+<div class="box">
+<b>📁 CSV Upload</b><p class="small">CSV me columns: Name, Phone, Phone2, Package, Expiry, Amount</p>
+<input type="file" id="csvFile" accept=".csv">
+<button onclick="importCSV()">CSV Import Karain</button>
+<input id="searchBox" placeholder="🔍 Name ya Number likhain - khud mil jayega..." oninput="render()">
+</div>
+<div class="box"><div style="overflow:auto"><table><thead><tr><th>Name</th><th>Number</th><th>Package</th><th>Expiry</th><th>Action</th></tr></thead><tbody id="list"></tbody></table></div></div>
+<div class="box" id="detailBox" style="display:none"></div>
+</div>
+
+<div id="workersTab" class="hide">
+<div class="box"><b>👷 Worker Add</b>
+<input id="wName" placeholder="Worker Name"><input id="wPhone" placeholder="Worker Phone"><input id="wSalary" type="number" placeholder="Salary Rs"><button onclick="addWorker()">Worker Save Karain</button></div>
+<div class="box"><table><thead><tr><th>Name</th><th>Phone</th><th>Salary</th></tr></thead><tbody id="workerList"></tbody></table></div>
+</div>
+
+<div id="addTab" class="hide">
+<div class="box"><b>➕ New Customer Add</b>
+<input id="cName" placeholder="Full Name"><input id="cPhone" placeholder="WhatsApp Number - 92300..."><input id="cPhone2" placeholder="2nd Number - Copy wala"><input id="cPackage" placeholder="Package - 4Mb / 6Mb"><input id="cExpiry" type="date"><input id="cAmount" type="number" placeholder="Monthly Fee Rs">
+<button onclick="addCustomer()">Customer Save Karain</button></div>
+</div>
+
+<script>
+let customers=JSON.parse(localStorage.getItem('vip_customers')||'[]');
+let workers=JSON.parse(localStorage.getItem('vip_workers')||'[]');
+function save(){localStorage.setItem('vip_customers',JSON.stringify(customers));localStorage.setItem('vip_workers',JSON.stringify(workers));render();}
+function showTab(id,btn){['customersTab','workersTab','addTab'].forEach(x=>document.getElementById(x).classList.add('hide'));document.getElementById(id+'Tab').classList.remove('hide');document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');}
+function todayStr(){let d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function waLink(phone,msg){return 'https://wa.me/'+phone.replace(/\D/g,'')+'?text='+encodeURIComponent(msg);}
+function copyNum(n){navigator.clipboard.writeText(n);alert('Copy ho gaya: '+n);}
+
+// Robust CSV - quotes wala bhi chalega
+function parseCSV(text){
+  let rows=[],row=[],cur='',inQ=false;
+  for(let i=0;i<text.length;i++){let c=text[i];
+    if(c=='"'){if(inQ&&text[i+1]=='"'){cur+='"';i++;}else inQ=!inQ;}
+    else if(c==','&&!inQ){row.push(cur);cur='';}
+    else if((c=='\n'||c=='\r')&&!inQ){if(c=='\r'&&text[i+1]=='\n')i++;row.push(cur);rows.push(row);row=[];cur='';}
+    else cur+=c;
+  } if(cur||row.length) {row.push(cur);rows.push(row);}
+  return rows;
+}
+function importCSV(){
+  let f=document.getElementById('csvFile').files[0];
+  if(!f){alert('Pehle CSV file select karain');return;}
+  let r=new FileReader();
+  r.onload=e=>{
+    let rows=parseCSV(e.target.result);
+    let header=rows[0].map(h=>h.toLowerCase().trim());
+    let idx=(n)=>header.findIndex(h=>h.includes(n));
+    let iName=idx('name')>-1?idx('name'):0, iPhone=idx('phone')>-1?idx('phone'):1, iPhone2=idx('phone2')>-1?idx('phone2'):2, iPack=idx('package')>-1?idx('package'):3, iExp=idx('expir')>-1?idx('expir'):4, iAmt=idx('amount')>-1?idx('amount'):5;
+    let count=0;
+    for(let k=1;k<rows.length;k++){
+      if(!rows[k][iName]) continue;
+      customers.push({name:rows[k][iName]||'',phone:rows[k][iPhone]||'',phone2:rows[k][iPhone2]||'',pkg:rows[k][iPack]||'',expiry:rows[k][iExp]||'',payments:[],total:parseFloat(rows[k][iAmt])||0});
+      count++;
+    }
+    save(); alert(count+' Customers Import ho gaye!');
+  }; r.readAsText(f);
+}
+function addCustomer(){
+  let n=document.getElementById('cName').value.trim();
+  if(!n){alert('Name likhain');return;}
+  customers.push({name:n,phone:document.getElementById('cPhone').value,phone2:document.getElementById('cPhone2').value,pkg:document.getElementById('cPackage').value,expiry:document.getElementById('cExpiry').value,payments:[],total:0});
+  save(); alert('Customer Add ho gaya!'); showTab('customers',document.querySelector('.tabs button'));
+}
+function addWorker(){
+  let n=document.getElementById('wName').value.trim(); if(!n){alert('Worker Name likhain');return;}
+  workers.push({name:n,phone:document.getElementById('wPhone').value,salary:document.getElementById('wSalary').value}); save();
+}
+function openCustomer(i){
+  let c=customers[i];
+  let msg='Assalam o Alaikum '+c.name+', aap ka internet package '+c.pkg+' expire ho raha hai. Please payment kar dain. - Real Power Of Internet';
+  document.getElementById('detailBox').style.display='block';
+  document.getElementById('detailBox').innerHTML='<b>'+c.name+'</b> - '+c.pkg+'<br>Expiry: '+(c.expiry||'--')+'<br><br>'+
+  '<div class="flex"><a href="'+waLink(c.phone,msg)+'" target="_blank"><button class="btn2">WhatsApp - '+c.phone+'</button></a>'+
+  '<button class="btn3" onclick="copyNum(\''+c.phone2+'\')">📋 Copy 2nd Number<br>'+c.phone2+'</button></div>'+
+  '<p>Total Paid: Rs '+(c.payments.reduce((a,b)=>a+b.amount,0))+'</p>'+
+  '<input id="payAmt" type="number" placeholder="Payment Amount Rs"><input id="payNote" placeholder="Note - Month / Cash / JazzCash"><button onclick="addPayment('+i+')">Payment Entry Save Karain</button>'+
+  '<div style="margin-top:8px">'+c.payments.map(p=>'<div>✅ Rs '+p.amount+' - '+p.note+' - '+p.date+'</div>').join('')+'</div>';
+  window.scrollTo(0,document.getElementById('detailBox').offsetTop);
+}
+function addPayment(i){
+  let a=parseFloat(document.getElementById('payAmt').value); if(!a){alert('Amount likhain');return;}
+  customers[i].payments.push({amount:a,note:document.getElementById('payNote').value||'',date:new Date().toLocaleDateString()});
+  save(); openCustomer(i);
+}
+function render(){
+  let q=(document.getElementById('searchBox').value||'').toLowerCase();
+  document.getElementById('totalUsers').innerText=customers.length;
+  let today=todayStr();
+  let exp=customers.filter(c=>c.expiry && c.expiry.includes(today)).length;
+  // Agar expiry format 19 Dec 2026 jaisa ho to bhi check
+  if(exp==0){let d=new Date(); let alt=d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); exp=customers.filter(c=>c.expiry && c.expiry.includes(alt.split(' ')[0])).length;}
+  document.getElementById('todayExpire').innerText=exp;
+  let coll=customers.reduce((s,c)=>s+c.payments.reduce((a,b)=>a+b.amount,0),0);
+  document.getElementById('totalCollection').innerText=coll;
+  let html='';
+  customers.forEach((c,i)=>{
+    if(q && !(c.name.toLowerCase().includes(q)||c.phone.includes(q)||(c.phone2||'').includes(q))) return;
+    let msg='Assalam o Alaikum '+c.name+', aap ka package '+c.pkg+' expire ho raha hai. Payment kar dain.';
+    html+='<tr><td><b>'+c.name+'</b><br><small>'+c.pkg+'</small></td><td><a href="'+waLink(c.phone,msg)+'" target="_blank">📱 '+c.phone+'</a><br><button class="btn3" style="padding:4px;font-size:11px" onclick="copyNum(\''+c.phone2+'\')">Copy 2nd: '+c.phone2+'</button></td><td>'+c.pkg+'</td><td>'+(c.expiry||'--')+'</td><td><button class="btn4" onclick="openCustomer('+i+')">Open</button></td></tr>';
+  });
+  document.getElementById('list').innerHTML=html||'<tr><td colspan="5">No Data - CSV upload karain ya Customer Add karain</td></tr>';
+  document.getElementById('workerList').innerHTML=workers.map(w=>'<tr><td>'+w.name+'</td><td>'+w.phone+'</td><td>'+w.salary+'</td></tr>').join('')||'<tr><td colspan="3">No Worker</td></tr>';
+}
+render();
+</script></body></html>
